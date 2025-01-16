@@ -7,7 +7,6 @@ from snntorch import functional as SF
 from snntorch import utils
 from snntorch import spikeplot as splt
 
-# gsjhgdjhgjh
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
@@ -361,5 +360,4 @@ plt.show()
 # 打印分类报告和准确率
 print("1111111111111111111111111111111111111111111111111111111111111111111")
 print(classification_report(np_test_batch_labels, y_pred))
-print("Accuracy:", accuracy_score(np_test_batch_labels, y_pred))
-total_acc += accuracy_score(np_test_batch_labels, y_pred)
+
