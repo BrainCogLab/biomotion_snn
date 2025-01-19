@@ -6,14 +6,15 @@ from snntorch import utils
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import matplotlib.pyplot as plt
 import numpy as np
 from tqdm import *
 from sklearn.metrics import  classification_report
 from sklearn import svm
+import joblib
 import torch.nn.utils.prune as prune
-from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
 import time
+import matplotlib.pyplot as plt
+from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
 
 def forward_pass(net, num_steps, data):
     spk_rec = []
@@ -134,6 +135,7 @@ def save_figure_as_pdf(figure, save_dir, filename):
     figure.savefig(save_file_path, dpi=300, bbox_inches='tight', format='pdf')
 
     print("Diagram saved successfully at:", save_file_path)
+
 def set_seed(seed):
     torch.manual_seed(seed)
     torch.cuda.manual_seed(seed)
@@ -145,8 +147,8 @@ set_seed(40)
 dtype = torch.float
 device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
 
+trained = True
 lambda_reg = 0.001
-train_num = 1
 num_epochs = 200
 batch = 30
 total_acc = 0
@@ -185,6 +187,7 @@ class scnn(nn.Module):
         nn.init.zeros_(self.fc1.bias)
 
 net = scnn().to(device)
+
 optimizer = torch.optim.Adam(net.parameters(), lr=0.0001, betas=(0.9, 0.999))
 
 train_data = sio.loadmat('train_matrix.mat')["matrix"]
@@ -218,6 +221,11 @@ for epo in tqdm(range(num_epochs)):
         total_loss.backward()
         optimizer.step()
 
+if trained:
+    if device == torch.device('cpu'):
+        net.load_state_dict(torch.load("model.pt",map_location='cpu'))
+    else:
+        net.load_state_dict(torch.load("model.pt",map_location='cuda'))
 #pruning
 prune.l1_unstructured(net.conv1, name="weight", amount=0.3)
 prune.l1_unstructured(net.conv2, name="weight", amount=0.1)
@@ -250,29 +258,12 @@ np_train_batch_labels = train_batch_labels.detach().numpy()
 test_batch_labels = test_batch_labels.cpu()
 np_test_batch_labels = test_batch_labels.detach().numpy()
 
-labels = [
-    "1", "2", "3", "4",
-    "5", "6", "7", "8"
-]
-
 clf = svm.SVC(kernel='rbf', gamma='scale')
 clf.fit(np_train_output, np_train_batch_labels)
+if trained:
+    clf = joblib.load("svm.m")
+
 y_pred = clf.predict(np_test_output)
-
-conf_mat = confusion_matrix(np_test_batch_labels, y_pred)
-
-fig, ax = plt.subplots(figsize=(8, 6))
-disp = ConfusionMatrixDisplay(confusion_matrix=conf_mat, display_labels=labels)
-disp.plot(cmap='Blues', ax=ax, colorbar=True)
-
-current_file = os.path.basename(__file__)
-save_dir = "Python_Figures"
-filename = os.path.splitext(current_file)[0] + ".pdf"
-save_figure_as_pdf(fig, save_dir, filename)
-
-plt.title("Confusion Matrix for SVM Classifier")
-plt.tight_layout()
-plt.show()
 
 print("1111111111111111111111111111111111111111111111111111111111111111111")
 print(classification_report(np_test_batch_labels, y_pred))
